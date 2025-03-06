@@ -1,0 +1,13 @@
+klasseserver/
+├── .env
+├── docker-compose.yml
+├── nginx/
+│   ├── Dockerfile
+│   └── nginx.conf
+├── postgres/
+│   └── init-scripts/
+│       └── 01-init.sql
+└── volumes/
+    ├── postgres-data/
+    ├── pgadmin-data/
+    └── certbot/
