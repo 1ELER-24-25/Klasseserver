@@ -4,100 +4,207 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Robotikk Klasseserver</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --background-color: #f1f5f9;
+            --card-background: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', sans-serif;
             line-height: 1.6;
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
+            background-color: var(--background-color);
+            color: var(--text-primary);
         }
+
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 2rem;
         }
+
         .header {
             text-align: center;
-            padding: 3rem 0;
-            color: #2c3e50;
+            padding: 2rem 0;
         }
-        .card {
-            background: white;
-            border-radius: 10px;
-            padding: 2rem;
-            margin: 1rem 0;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
         }
+
+        .nav {
+            background-color: var(--card-background);
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
         .button {
-            display: inline-block;
-            padding: 12px 24px;
-            background: #3498db;
+            display: inline-flex;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary-color);
             color: white;
             text-decoration: none;
-            border-radius: 5px;
-            transition: background 0.3s;
-            margin: 1rem 0;
-        }
-        .button:hover {
-            background: #2980b9;
-        }
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin: 2rem 0;
-        }
-        .feature-card {
-            background: white;
-            padding: 1.5rem;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .button:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-1px);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .leaderboard {
+            background-color: var(--card-background);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .leaderboard h2 {
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .leaderboard-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            background-color: var(--background-color);
+        }
+
+        .leaderboard-item span:first-child {
+            font-weight: 500;
+        }
+
+        .leaderboard-item span:last-child {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .last-game {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--background-color);
+        }
+
+        .last-game h3 {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .last-game p {
+            color: var(--text-primary);
+            font-weight: 500;
         }
     </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/php/leaderboard.php')  // This path should now match our configuration
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    updateLeaderboard('chess', data.chess);
+                    updateLeaderboard('foosball', data.foosball);
+                })
+                .catch(error => console.error('Error:', error));
+        });
+
+        function updateLeaderboard(game, data) {
+            const leaderboardList = document.querySelector(`#${game}-leaderboard .leaderboard-list`);
+            const lastGame = document.querySelector(`#${game}-leaderboard .last-game p`);
+            
+            leaderboardList.innerHTML = data.leaderboard
+                .map((player, index) => `
+                    <li class="leaderboard-item">
+                        <span>${index + 1}. ${player.username}</span>
+                        <span>${player.elo_rating} ELO</span>
+                    </li>
+                `).join('');
+
+            if (data.lastGame) {
+                lastGame.textContent = `${data.lastGame.result === 'Draw' ? 
+                    'Uavgjort mellom ' + data.lastGame.player1 + ' og ' + data.lastGame.player2 :
+                    data.lastGame.result + ' vant mot ' + (data.lastGame.result === data.lastGame.player1 ? data.lastGame.player2 : data.lastGame.player1)}`;
+            }
+        }
+    </script>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Velkommen til Robotikk Klasseserver</h1>
-            <p>En kraftig plattform for IoT-enheter og databasehåndtering</p>
+            <h1>Robotikk Klasseserver</h1>
         </div>
 
-        <div class="card">
-            <h2>Hurtiglenker</h2>
-            <a href="/pgadmin/" class="button">Åpne pgAdmin</a>
-        </div>
+        <nav class="nav">
+            <a href="/pgadmin/" class="button">pgAdmin</a>
+            <a href="/server-info.html" class="button">Server Informasjon</a>
+        </nav>
 
-        <div class="features">
-            <div class="feature-card">
-                <h3>Database</h3>
-                <p>PostgreSQL database for lagring av sensordata og prosjektinformasjon.</p>
-                <ul>
-                    <li>Port: 5432</li>
-                    <li>Versjon: PostgreSQL 14</li>
-                    <li>Administreres via pgAdmin</li>
+        <div class="grid">
+            <div class="leaderboard" id="chess-leaderboard">
+                <h2>Sjakk Rangering</h2>
+                <ul class="leaderboard-list">
+                    <li class="leaderboard-item">
+                        <span>Laster...</span>
+                        <span>-</span>
+                    </li>
                 </ul>
+                <div class="last-game">
+                    <h3>Siste Spill</h3>
+                    <p>Laster...</p>
+                </div>
             </div>
 
-            <div class="feature-card">
-                <h3>MQTT Broker</h3>
-                <p>Mosquitto MQTT broker for IoT-kommunikasjon.</p>
-                <ul>
-                    <li>MQTT Port: 1883</li>
-                    <li>WebSocket Port: 9001</li>
-                    <li>Støtter alle MQTT-klienter</li>
+            <div class="leaderboard" id="foosball-leaderboard">
+                <h2>Foosball Rangering</h2>
+                <ul class="leaderboard-list">
+                    <li class="leaderboard-item">
+                        <span>Laster...</span>
+                        <span>-</span>
+                    </li>
                 </ul>
-            </div>
-
-            <div class="feature-card">
-                <h3>Sikkerhet</h3>
-                <p>Implementerte sikkerhetstiltak:</p>
-                <ul>
-                    <li>Konteinerisolasjon</li>
-                    <li>Sikker nettverkskonfigurasjon</li>
-                    <li>Tilgangskontroll</li>
-                </ul>
+                <div class="last-game">
+                    <h3>Siste Spill</h3>
+                    <p>Laster...</p>
+                </div>
             </div>
         </div>
     </div>

@@ -42,7 +42,7 @@ services:
       - klasseserver_network
 
   nginx:
-    build: 
+    build:
       context: ./nginx
       dockerfile: Dockerfile
     container_name: klasseserver_nginx
@@ -51,11 +51,18 @@ services:
       - "80:80"
     volumes:
       - ./nginx/www:/usr/share/nginx/html:ro
+      - ./nginx/php:/var/www/php  # Changed from /var/www/html to /var/www/php
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     networks:
       - klasseserver_network
     depends_on:
       - pgadmin
       - mosquitto
+      - postgres
 
 networks:
   klasseserver_network:
@@ -63,3 +70,8 @@ networks:
 
 volumes:
   pgadmin-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/volumes/pgadmin-data

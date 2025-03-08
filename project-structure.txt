@@ -6,7 +6,12 @@ klasseserver/
 │   └── nginx.conf
 ├── postgres/
 │   └── init-scripts/
-│       └── 01-init.sql
+│       ├── 00-init-master.sql
+│       ├── 01-init-gaming.sql
+│       ├── 03-init-game-types.sql
+│       ├── 04-test-data.sql
+│       ├── 05-rating-functions.sql
+│       └── 06-test-ratings.sql
 └── volumes/
     ├── postgres-data/
     ├── pgadmin-data/
