@@ -1,5 +1,16 @@
 # Environment variables
 .env
 
-# Runtime data
+# Runtime data and volumes
 volumes/
+volumes/postgres-data/
+volumes/pgadmin-data/
+volumes/certbot/
+mosquitto/data/
+mosquitto/log/
+
+# IDE and system files
+.idea/
+.vscode/
+.DS_Store
+*.log
