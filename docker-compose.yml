@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:14
@@ -53,7 +51,6 @@ services:
       - "80:80"
     volumes:
       - ./nginx/www:/usr/share/nginx/html:ro
-      - ./volumes/certbot/www:/var/www/certbot:ro
     networks:
       - klasseserver_network
     depends_on:
