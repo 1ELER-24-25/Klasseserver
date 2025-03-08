@@ -59,7 +59,6 @@ Required variables:
 # Create volume directories
 mkdir -p volumes/postgres-data
 mkdir -p volumes/pgadmin-data
-mkdir -p volumes/certbot
 mkdir -p mosquitto/config
 mkdir -p mosquitto/data
 mkdir -p mosquitto/log
