@@ -72,6 +72,12 @@ mkdir -p mosquitto/log
 # Set proper permissions
 sudo chown -R 1001:1001 volumes/postgres-data
 sudo chown -R 5050:5050 volumes/pgadmin-data
+sudo chmod -R 777 mosquitto/config
+sudo chmod -R 777 mosquitto/data
+sudo chmod -R 777 mosquitto/log
+
+# Ensure current user has permissions to run docker commands
+sudo chmod 666 /var/run/docker.sock
 ```
 
 ## Step 5: Start the Services
