@@ -53,6 +53,18 @@ cp .env.example .env
 nano .env
 ```
 
+3. Generate pgAdmin configuration:
+```bash
+# Either use the command:
+./commands.sh config
+
+# Or manually:
+cp pgadmin/servers.json.template pgadmin/servers.json
+sed -i "s/POSTGRES_DB/${POSTGRES_DB}/g" pgadmin/servers.json
+sed -i "s/POSTGRES_USER/${POSTGRES_USER}/g" pgadmin/servers.json
+sed -i "s/POSTGRES_PASSWORD/${POSTGRES_PASSWORD}/g" pgadmin/servers.json
+```
+
 Required variables:
 - POSTGRES_DB
 - POSTGRES_USER

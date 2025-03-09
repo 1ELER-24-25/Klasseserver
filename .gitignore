@@ -8,6 +8,10 @@ volumes/pgadmin-data/
 mosquitto/data/
 mosquitto/log/
 
+# pgAdmin
+pgadmin/servers.json
+!pgadmin/servers.json.template
+
 # IDE and system files
 .idea/
 .vscode/
