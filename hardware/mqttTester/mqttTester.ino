@@ -50,27 +50,84 @@ void setupWiFi() {
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
     String message = String((char*)payload, length);
     Serial.printf("\nReceived message on topic '%s': %s\n", topic, message.c_str());
+
+    // Parse JSON response
+    StaticJsonDocument<1024> doc;
+    DeserializationError error = deserializeJson(doc, message);
+    
+    if (error) {
+        Serial.print("deserializeJson() failed: ");
+        Serial.println(error.c_str());
+        return;
+    }
+
+    // Handle card registration response
+    if (String(topic) == "card/response") {
+        const char* status = doc["status"];
+        const char* playerName = doc["player_name"];
+        bool isNew = doc["is_new"];
+        
+        Serial.println("Card registration response:");
+        Serial.printf("Status: %s\n", status);
+        if (strcmp(status, "success") == 0) {
+            Serial.printf("Player: %s (New: %s)\n", playerName, isNew ? "Yes" : "No");
+        }
+    }
 }
 
 void setupMQTT() {
     mqtt.setServer(mqtt_server, mqtt_port);
     mqtt.setCallback(mqttCallback);
     
-    // Subscribe to response topics
-    const char* subscribeTopics[] = {
-        "card/response",
-        "chess/game/response",
-        "foosball/game/response",
-        "iot/rfid/response",
-        "iot/stats/response"
-    };
-    
     reconnectMQTT();
+    
+    // Update subscribe topics to match the protocol
+    const char* subscribeTopics[] = {
+        "card/response",              // For card registration responses
+        "foosball/game/response",     // For foosball game responses
+        "chess/game/response",        // For chess game responses
+        "foosball/error",            // For foosball errors
+        "chess/error",               // For chess errors
+        "iot/display/message"        // For display messages
+    };
     
     for (const char* topic : subscribeTopics) {
         mqtt.subscribe(topic);
         Serial.printf("Subscribed to: %s\n", topic);
     }
+}
+
+void printMessage(const char* prefix, const char* topic, const char* payload) {
+    Serial.println("\n----------------------------------------");
+    Serial.printf("| %s\n", prefix);
+    Serial.printf("| Topic: %s\n", topic);
+    Serial.printf("| Payload: %s\n", payload);
+    Serial.println("----------------------------------------\n");
+}
+
+void publishJson(const char* topic, JsonDocument& doc) {
+    serializeJson(doc, jsonBuffer);
+    mqtt.publish(topic, jsonBuffer);
+    printMessage("PUBLISHED", topic, jsonBuffer);
+}
+
+void verifySubscriptions() {
+    Serial.println("\n=== MQTT Subscription Status ===");
+    const char* topics[] = {
+        "card/response",
+        "foosball/game/response",
+        "chess/game/response",
+        "foosball/error",
+        "chess/error",
+        "iot/display/message"
+    };
+    
+    for (const char* topic : topics) {
+        // Unfortunately PubSubClient doesn't provide a way to check subscription status
+        // So we'll just print what we're supposed to be subscribed to
+        Serial.printf("Should be subscribed to: %s\n", topic);
+    }
+    Serial.println("===============================\n");
 }
 
 void reconnectMQTT() {
@@ -81,17 +138,30 @@ void reconnectMQTT() {
         
         if (mqtt.connect(clientId.c_str())) {
             Serial.println("Connected to MQTT");
+            
+            // Resubscribe to all topics after reconnect
+            const char* subscribeTopics[] = {
+                "card/response",
+                "foosball/game/response",
+                "chess/game/response",
+                "foosball/error",
+                "chess/error",
+                "iot/display/message"
+            };
+            
+            for (const char* topic : subscribeTopics) {
+                boolean success = mqtt.subscribe(topic);
+                Serial.printf("Subscribing to %s: %s\n", topic, success ? "SUCCESS" : "FAILED");
+            }
+            
+            // Print subscription status
+            verifySubscriptions();
         } else {
             Serial.printf("Failed to connect to MQTT, rc=%d\n", mqtt.state());
+            Serial.println("Retrying in 2 seconds...");
             delay(2000);
         }
     }
-}
-
-void publishJson(const char* topic, JsonDocument& doc) {
-    serializeJson(doc, jsonBuffer);
-    mqtt.publish(topic, jsonBuffer);
-    Serial.printf("Published to %s: %s\n", topic, jsonBuffer);
 }
 
 void sendDeviceStatus(const char* status, const char* type) {
@@ -110,7 +180,12 @@ void registerCard(const char* cardId) {
     doc["card_id"] = cardId;
     doc["timestamp"] = 1234567890;
     
+    printMessage("REGISTERING CARD", "card/register", cardId);
     publishJson("card/register", doc);
+    Serial.println("Waiting for card registration response on topic 'card/response'...");
+    
+    // Verify we're still subscribed
+    verifySubscriptions();
 }
 
 void startChessGame() {

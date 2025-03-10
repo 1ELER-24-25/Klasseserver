@@ -42,18 +42,26 @@ try {
     debug("Connected to MQTT broker successfully");
     $mqtt->publish('server/status', 'online', 1, true);
     
-    $mqtt->subscribe('game/register_card', function($topic, $message) use ($mqtt, $dbconn) {
+    $mqtt->subscribe('card/register', function($topic, $message) use ($mqtt, $dbconn) {
         debug("Received message on topic '$topic': $message");
         
         try {
             $data = json_decode($message, true);
-            if (!isset($data['card_id'])) {
-                debug("Error: Invalid message format - missing card_id");
+            if (!isset($data['card_id']) || !isset($data['device_id'])) {
+                debug("Error: Invalid message format - missing required fields");
+                $response = [
+                    'card_id' => $data['card_id'] ?? 'unknown',
+                    'status' => 'error',
+                    'message' => 'Invalid message format',
+                    'timestamp' => time()
+                ];
+                $mqtt->publish('card/response', json_encode($response), 1);
                 return;
             }
             
             $cardId = $data['card_id'];
-            debug("Processing card ID: $cardId");
+            $deviceId = $data['device_id'];
+            debug("Processing card ID: $cardId from device: $deviceId");
             
             // First check if the card exists
             $query = "
@@ -66,16 +74,25 @@ try {
             
             if (!$result) {
                 debug("Database error: " . pg_last_error($dbconn));
+                $response = [
+                    'card_id' => $cardId,
+                    'status' => 'error',
+                    'message' => 'Database error',
+                    'timestamp' => time()
+                ];
+                $mqtt->publish('card/response', json_encode($response), 1);
                 return;
             }
             
             $row = pg_fetch_assoc($result);
             $isNew = false;
             $playerName = '';
+            $playerId = null;
             
             if ($row) {
                 // Existing user
                 $playerName = $row['first_name'] . ' ' . $row['last_name'];
+                $playerId = $row['user_id'];
                 debug("Found existing player: $playerName");
             } else {
                 // New user
@@ -134,24 +151,41 @@ try {
                 } catch (Exception $e) {
                     pg_query($dbconn, "ROLLBACK");
                     debug("Error in transaction: " . $e->getMessage());
+                    $response = [
+                        'card_id' => $cardId,
+                        'status' => 'error',
+                        'message' => 'Failed to create new user',
+                        'timestamp' => time()
+                    ];
+                    $mqtt->publish('card/response', json_encode($response), 1);
                     return;
                 }
             }
             
             $response = [
                 'card_id' => $cardId,
-                'name' => $playerName,
-                'is_new' => $isNew
+                'status' => 'success',
+                'is_new' => $isNew,
+                'player_name' => $playerName,
+                'player_id' => (string)$playerId,
+                'timestamp' => time()
             ];
             
             $responseJson = json_encode($response);
-            debug("Publishing response to game/response/player: $responseJson");
+            debug("Publishing response to card/response: $responseJson");
             
-            $success = $mqtt->publish('game/response/player', $responseJson, 1);
+            $success = $mqtt->publish('card/response', $responseJson, 1);
             debug($success ? "Response published successfully" : "Failed to publish response");
             
         } catch (Exception $e) {
             debug("Error processing message: " . $e->getMessage());
+            $response = [
+                'card_id' => $cardId ?? 'unknown',
+                'status' => 'error',
+                'message' => 'Internal server error',
+                'timestamp' => time()
+            ];
+            $mqtt->publish('card/response', json_encode($response), 1);
         }
     });
 
@@ -234,7 +268,7 @@ try {
         }
     });
 
-    debug("Subscribed to game/register_card, waiting for messages...");
+    debug("Subscribed to card/register, waiting for messages...");
     
     while (true) {
         $mqtt->loop();
