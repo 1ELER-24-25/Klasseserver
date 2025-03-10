@@ -1,58 +1,62 @@
--- Create test users if they don't exist
+-- Create test users
 INSERT INTO gaming.users (username, first_name, last_name)
-SELECT u.username, u.first_name, u.last_name
-FROM (VALUES
+VALUES
     ('player1', 'John', 'Doe'),
     ('player2', 'Jane', 'Smith'),
-    ('player3', 'Michael', 'Johnson'),
-    ('player4', 'Emily', 'Brown'),
-    ('player5', 'David', 'Wilson')
-) AS u(username, first_name, last_name)
-WHERE NOT EXISTS (
-    SELECT 1 FROM gaming.users 
-    WHERE username = u.username
-);
+    ('player3', 'Michael', 'Johnson');
 
--- Create RFID cards for users that don't have them
+-- Create RFID cards for users
 INSERT INTO gaming.rfid_cards (uid, user_id)
-SELECT 'CARD' || LPAD(u.user_id::text, 8, '0'), u.user_id
-FROM gaming.users u
-WHERE NOT EXISTS (
-    SELECT 1 FROM gaming.rfid_cards r 
-    WHERE r.user_id = u.user_id
-);
+SELECT 'CARD001', user_id FROM gaming.users WHERE username = 'player1'
+UNION ALL
+SELECT 'CARD002', user_id FROM gaming.users WHERE username = 'player2'
+UNION ALL
+SELECT 'CARD003', user_id FROM gaming.users WHERE username = 'player3';
 
--- Initialize ratings for users that don't have them
-INSERT INTO gaming.user_ratings (user_id, game_type_id, elo_rating)
-SELECT u.user_id, gt.game_type_id, gt.default_elo
-FROM gaming.users u
-CROSS JOIN gaming.game_types gt
-WHERE NOT EXISTS (
-    SELECT 1 FROM gaming.user_ratings r 
-    WHERE r.user_id = u.user_id 
-    AND r.game_type_id = gt.game_type_id
-);
+-- Register test IoT devices
+INSERT INTO gaming.iot_devices (device_id, device_type, capabilities, authorized_capabilities, status)
+VALUES
+    ('ESP32_001', 'SCANNER', '["rfid_read", "display"]', '["rfid_read", "display"]', 'online'),
+    ('ESP32_002', 'DISPLAY', '["display"]', '["display"]', 'online'),
+    ('ESP32_003', 'SENSOR', '["temperature", "humidity"]', '["temperature", "humidity"]', 'online');
 
--- Verify data
-DO $$
-DECLARE
-    user_count INTEGER;
-    card_count INTEGER;
-    rating_count INTEGER;
-BEGIN
-    SELECT COUNT(*) INTO user_count FROM gaming.users;
-    SELECT COUNT(*) INTO card_count FROM gaming.rfid_cards;
-    SELECT COUNT(*) INTO rating_count FROM gaming.user_ratings;
-    
-    IF user_count < 5 THEN
-        RAISE EXCEPTION 'Expected at least 5 users, found %', user_count;
-    END IF;
-    
-    IF card_count < 5 THEN
-        RAISE EXCEPTION 'Expected at least 5 RFID cards, found %', card_count;
-    END IF;
-    
-    IF rating_count < 10 THEN
-        RAISE EXCEPTION 'Expected at least 10 ratings (5 users × 2 game types), found %', rating_count;
-    END IF;
-END $$;
+-- Create a completed foosball game
+WITH new_game AS (
+    INSERT INTO gaming.games (game_type_id, status, start_time, end_time)
+    SELECT game_type_id, 'COMPLETED', 
+           CURRENT_TIMESTAMP - interval '1 hour',
+           CURRENT_TIMESTAMP - interval '30 minutes'
+    FROM gaming.game_types 
+    WHERE name = 'FOOSBALL'
+    RETURNING game_id
+)
+INSERT INTO gaming.foosball_games (game_id, team1_score, team2_score, winning_team, completed, termination_reason)
+SELECT game_id, 5, 3, 1, true, 'normal'
+FROM new_game;
+
+-- Create an interrupted chess game
+WITH new_game AS (
+    INSERT INTO gaming.games (game_type_id, status, start_time, end_time)
+    SELECT game_type_id, 'COMPLETED',
+           CURRENT_TIMESTAMP - interval '2 hours',
+           CURRENT_TIMESTAMP - interval '1 hour 45 minutes'
+    FROM gaming.game_types
+    WHERE name = 'CHESS'
+    RETURNING game_id
+)
+INSERT INTO gaming.chess_games (game_id, completed, termination_reason, error_code)
+SELECT game_id, false, 'connection_lost', 'ERR_007'
+FROM new_game;
+
+-- Add some device errors
+INSERT INTO gaming.device_errors (device_id, error_code, severity, message)
+VALUES
+    ('ESP32_001', 'IOT_003', 'warning', 'Rate limit exceeded'),
+    ('ESP32_002', 'IOT_001', 'fatal', 'Device registration failed');
+
+-- Add some test chess moves
+INSERT INTO gaming.chess_positions (game_id, move_number, pgn, last_move, mqtt_timestamp)
+VALUES 
+    (1, 1, '1. e4', 'e4', 1234567890),
+    (1, 2, '1. e4 e5', 'e5', 1234567891),
+    (1, 3, '1. e4 e5 2. Nf3', 'Nf3', 1234567892);

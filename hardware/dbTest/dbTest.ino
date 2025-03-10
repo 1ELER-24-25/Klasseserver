@@ -8,7 +8,7 @@ const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
 
 // Server details
-const char* serverUrl = "http://your-server/php/api";  // Replace with your actual server URL
+const char* serverUrl = "http://192.168.1.216/php";  // Use your server's IP address
 
 void setup() {
   Serial.begin(115200);
@@ -42,8 +42,8 @@ void sendGameResult(String player1Card, String player2Card, String winner) {
     String jsonString;
     serializeJson(doc, jsonString);
     
-    // Send POST request
-    http.begin(String(serverUrl) + "/game_result.php");
+    // Send POST request to the api subfolder
+    http.begin(String(serverUrl) + "/api/game_result.php");
     http.addHeader("Content-Type", "application/json");
     
     int httpResponseCode = http.POST(jsonString);

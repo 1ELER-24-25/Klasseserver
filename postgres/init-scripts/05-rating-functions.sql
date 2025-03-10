@@ -10,8 +10,7 @@ $$ LANGUAGE plpgsql;
 
 -- Function to update ratings for an individual game
 CREATE OR REPLACE FUNCTION gaming.update_ratings(
-    p_game_id INTEGER,
-    p_winner_id INTEGER
+    p_game_id INTEGER
 ) RETURNS VOID AS $$
 DECLARE
     v_game_type_id INTEGER;
@@ -22,6 +21,8 @@ DECLARE
     v_player2_rating INTEGER;
     v_expected_score FLOAT;
     v_player1_score FLOAT;
+    v_completed BOOLEAN;
+    v_termination_reason VARCHAR;
 BEGIN
     -- Get game type and k-factor
     SELECT game_type_id INTO v_game_type_id
@@ -32,7 +33,22 @@ BEGIN
     FROM gaming.game_types
     WHERE game_type_id = v_game_type_id;
 
-    -- Get players (simplified version)
+    -- Get completion status based on game type
+    CASE 
+        WHEN EXISTS (SELECT 1 FROM gaming.foosball_games WHERE game_id = p_game_id) THEN
+            SELECT completed, termination_reason INTO v_completed, v_termination_reason
+            FROM gaming.foosball_games WHERE game_id = p_game_id;
+        WHEN EXISTS (SELECT 1 FROM gaming.chess_games WHERE game_id = p_game_id) THEN
+            SELECT completed, termination_reason INTO v_completed, v_termination_reason
+            FROM gaming.chess_games WHERE game_id = p_game_id;
+    END CASE;
+
+    -- Only update ratings for completed games with normal termination
+    IF NOT (v_completed AND v_termination_reason = 'normal') THEN
+        RETURN;
+    END IF;
+
+    -- Get players
     SELECT MIN(user_id), MAX(user_id) 
     INTO v_player1_id, v_player2_id
     FROM gaming.game_participants
@@ -50,12 +66,27 @@ BEGIN
     -- Calculate expected score for player 1
     v_expected_score := gaming.calculate_expected_score(v_player1_rating, v_player2_rating);
 
-    -- Set actual score
-    v_player1_score := CASE
-        WHEN p_winner_id = v_player1_id THEN 1.0
-        WHEN p_winner_id = v_player2_id THEN 0.0
-        ELSE 0.5  -- Draw
-    END;
+    -- Determine actual score based on game type
+    CASE 
+        WHEN EXISTS (SELECT 1 FROM gaming.foosball_games WHERE game_id = p_game_id) THEN
+            SELECT 
+                CASE 
+                    WHEN team1_score > team2_score THEN 1.0
+                    WHEN team1_score < team2_score THEN 0.0
+                    ELSE 0.5
+                END INTO v_player1_score
+            FROM gaming.foosball_games 
+            WHERE game_id = p_game_id;
+        WHEN EXISTS (SELECT 1 FROM gaming.chess_games WHERE game_id = p_game_id) THEN
+            SELECT 
+                CASE 
+                    WHEN result = '1-0' THEN 1.0
+                    WHEN result = '0-1' THEN 0.0
+                    ELSE 0.5
+                END INTO v_player1_score
+            FROM gaming.chess_games 
+            WHERE game_id = p_game_id;
+    END CASE;
 
     -- Update player 1 rating
     INSERT INTO gaming.rating_history (
@@ -105,54 +136,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to create and complete a game
-CREATE OR REPLACE FUNCTION gaming.create_and_complete_game(
-    p_game_type_name VARCHAR,
-    p_player1_username VARCHAR,
-    p_player2_username VARCHAR,
-    p_winner_username VARCHAR DEFAULT NULL
-) RETURNS INTEGER AS $$
-DECLARE
-    v_game_id INTEGER;
-    v_game_type_id INTEGER;
-    v_player1_id INTEGER;
-    v_player2_id INTEGER;
-    v_winner_id INTEGER;
+-- Trigger function to automatically update ratings when a game is completed
+CREATE OR REPLACE FUNCTION gaming.trigger_update_ratings()
+RETURNS TRIGGER AS $$
 BEGIN
-    -- Get game type ID
-    SELECT game_type_id INTO v_game_type_id
-    FROM gaming.game_types
-    WHERE name = p_game_type_name;
-
-    -- Get player IDs
-    SELECT user_id INTO v_player1_id
-    FROM gaming.users
-    WHERE username = p_player1_username;
-
-    SELECT user_id INTO v_player2_id
-    FROM gaming.users
-    WHERE username = p_player2_username;
-
-    IF p_winner_username IS NOT NULL THEN
-        SELECT user_id INTO v_winner_id
-        FROM gaming.users
-        WHERE username = p_winner_username;
+    IF (NEW.completed = true AND NEW.termination_reason = 'normal') THEN
+        PERFORM gaming.update_ratings(NEW.game_id);
     END IF;
-
-    -- Create new game
-    INSERT INTO gaming.games (game_type_id)
-    VALUES (v_game_type_id)
-    RETURNING game_id INTO v_game_id;
-
-    -- Add players
-    INSERT INTO gaming.game_participants (game_id, user_id)
-    VALUES 
-        (v_game_id, v_player1_id),
-        (v_game_id, v_player2_id);
-
-    -- Update ratings
-    PERFORM gaming.update_ratings(v_game_id, v_winner_id);
-
-    RETURN v_game_id;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Create triggers for both game types
+CREATE TRIGGER update_foosball_ratings
+AFTER UPDATE ON gaming.foosball_games
+FOR EACH ROW
+WHEN (OLD.completed IS DISTINCT FROM NEW.completed)
+EXECUTE FUNCTION gaming.trigger_update_ratings();
+
+CREATE TRIGGER update_chess_ratings
+AFTER UPDATE ON gaming.chess_games
+FOR EACH ROW
+WHEN (OLD.completed IS DISTINCT FROM NEW.completed)
+EXECUTE FUNCTION gaming.trigger_update_ratings();

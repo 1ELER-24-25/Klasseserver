@@ -21,46 +21,51 @@ if (!isset($data['game_type']) || !isset($data['player1_card']) || !isset($data[
     die(json_encode(['error' => 'Missing required fields']));
 }
 
-// Get user IDs from RFID cards
+// Get usernames from RFID cards
 $query = "
-    SELECT user_id 
-    FROM gaming.rfid_cards 
-    WHERE uid = $1 
-    AND is_active = true
+    SELECT u.username 
+    FROM gaming.users u
+    JOIN gaming.rfid_cards r ON u.user_id = r.user_id 
+    WHERE r.uid = $1 
+    AND r.is_active = true
 ";
 
 $result1 = pg_query_params($dbconn, $query, array($data['player1_card']));
 $result2 = pg_query_params($dbconn, $query, array($data['player2_card']));
 
 if (!$result1 || !$result2) {
-    die(json_encode(['error' => 'Invalid RFID cards']));
+    die(json_encode(['error' => 'Database query failed']));
 }
 
 $player1 = pg_fetch_assoc($result1);
 $player2 = pg_fetch_assoc($result2);
 
 if (!$player1 || !$player2) {
-    die(json_encode(['error' => 'Players not found']));
+    die(json_encode(['error' => 'One or both players not found']));
 }
 
-// Determine winner
+// Determine winner username
 $winner = null;
 if (isset($data['winner_card']) && $data['winner_card'] !== '') {
-    if ($data['winner_card'] === $data['player1_card']) {
-        $winner = $player1['user_id'];
-    } else if ($data['winner_card'] === $data['player2_card']) {
-        $winner = $player2['user_id'];
+    $winner_query = pg_query_params($dbconn, $query, array($data['winner_card']));
+    if ($winner_query) {
+        $winner_row = pg_fetch_assoc($winner_query);
+        if ($winner_row) {
+            $winner = $winner_row['username'];
+        }
     }
 }
 
 // Create and complete game
-$query = "SELECT gaming.create_and_complete_game($1, $2, $3, $4)";
-$result = pg_query_params($dbconn, $query, array(
-    $data['game_type'],
-    $player1['user_id'],
-    $player2['user_id'],
-    $winner
-));
+$result = pg_query_params($dbconn, 
+    "SELECT gaming.create_and_complete_game($1, $2, $3, $4)",
+    array(
+        $data['game_type'],
+        $player1['username'],
+        $player2['username'],
+        $winner
+    )
+);
 
 if (!$result) {
     die(json_encode(['error' => 'Failed to create game']));

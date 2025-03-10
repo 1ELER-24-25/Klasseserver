@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MQTT Protokoll Dokumentasjon</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --background-color: #f1f5f9;
+            --card-background: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --code-background: #1e1e1e;
+            --code-text: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        .nav {
+            background-color: var(--card-background);
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .button:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-1px);
+        }
+
+        .protocol-section {
+            background-color: var(--card-background);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .protocol-section h2 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .topic-card {
+            background-color: var(--background-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .topic-name {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .topic-direction {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .code-block {
+            background-color: var(--code-background);
+            color: var(--code-text);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: monospace;
+            margin: 1rem 0;
+        }
+
+        .comment {
+            color: var(--text-secondary);
+            font-style: italic;
+            margin: 0.5rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>MQTT Protokoll Dokumentasjon</h1>
+        </div>
+
+        <nav class="nav">
+            <a href="/" class="button">Tilbake til Forsiden</a>
+            <a href="/server-info.html" class="button">Server Informasjon</a>
+        </nav>
+
+        <div class="protocol-section">
+            <h2>Tilkoblingsdetaljer</h2>
+            <div class="topic-card">
+                <div class="topic-name">Broker: Eclipse Mosquitto</div>
+                <div class="topic-direction">Standard Port: 1883</div>
+                <div class="topic-direction">WebSocket Port: 9001</div>
+                <div class="topic-direction">QoS Nivå: 1 (standard)</div>
+            </div>
+        </div>
+
+        <div class="protocol-section">
+            <h2>Kort Registrering</h2>
+            <div class="topic-card">
+                <div class="topic-name">Topic: card/register</div>
+                <div class="topic-direction">Retning: Enhet → Server</div>
+                <div class="comment">Registrerer nytt RFID-kort i systemet</div>
+                <pre class="code-block">{
+    "device_id": "ESP32_001",
+    "card_id": "RFID123",
+    "timestamp": 1234567890
+}</pre>
+            </div>
+
+            <div class="topic-card">
+                <div class="topic-name">Topic: card/response</div>
+                <div class="topic-direction">Retning: Server → Enhet</div>
+                <div class="comment">Server respons på kortregistrering</div>
+                <pre class="code-block">{
+    "card_id": "RFID123",
+    "status": "success|error",
+    "is_new": false,
+    "player_name": "Magnus Carlsen"
+}</pre>
+            </div>
+        </div>
+
+        <div class="protocol-section">
+            <h2>Enhetsstatus</h2>
+            <div class="topic-card">
+                <div class="topic-name">Topic: device/status</div>
+                <div class="topic-direction">Retning: Enhet → Server</div>
+                <div class="comment">Brukes for å rapportere enhetens tilkoblingsstatus</div>
+                <pre class="code-block">{
+    "device_id": "ESP32_001",
+    "type": "CHESS|FOOSBALL",
+    "status": "online|offline",
+    "timestamp": 1234567890
+}</pre>
+            </div>
+        </div>
+
+        <div class="protocol-section">
+            <h2>Sjakk Kommunikasjon</h2>
+            <div class="topic-card">
+                <div class="topic-name">Topic: chess/game/start</div>
+                <div class="topic-direction">Retning: Enhet → Server</div>
+                <div class="comment">Initierer et nytt sjakkparti</div>
+                <pre class="code-block">{
+    "device_id": "ESP32_001",
+    "player1_card": "RFID123",
+    "player2_card": "RFID456",
+    "timestamp": 1234567890
+}</pre>
+            </div>
+
+            <div class="topic-card">
+                <div class="topic-name">Topic: chess/game/move</div>
+                <div class="topic-direction">Retning: Enhet → Server</div>
+                <div class="comment">Registrerer trekk i spillet med komplett spillhistorikk</div>
+                <pre class="code-block">{
+    "game_id": "GAME_001",
+    "pgn": "1. e4 e5 2. Nf3 Nc6",
+    "move_number": 4,
+    "last_move": "Nc6",
+    "timestamp": 1234567890
+}</pre>
+                
+                <div class="comment">
+                    <h4>Sjakk Notasjon (PGN) Forklaring:</h4>
+                    <p>PGN (Portable Game Notation) representerer alle trekk i partiet:</p>
+                    <ul>
+                        <li>Notasjonen inkluderer alle trekk fra start til nåværende posisjon</li>
+                        <li>Hvert trekk starter med et nummer fulgt av punkt (f.eks. "1.")</li>
+                        <li>Hvits trekk kommer først, deretter svarts trekk</li>
+                    </ul>
+                    
+                    <h4>Vanlige Trekk-Notasjoner:</h4>
+                    <ul>
+                        <li>e4 - Bonde til e4</li>
+                        <li>Nf3 - Springer til f3</li>
+                        <li>Bxe5 - Løper slår brikke på e5</li>
+                        <li>O-O - Kort rokade</li>
+                        <li>O-O-O - Lang rokade</li>
+                        <li>e8=Q - Bondeforvandling til dronning</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="protocol-section">
+            <h2>Foosball Kommunikasjon</h2>
+            <div class="topic-card">
+                <div class="topic-name">Topic: foosball/game/start</div>
+                <div class="topic-direction">Retning: Enhet → Server</div>
+                <div class="comment">Starter et nytt foosballspill</div>
+                <pre class="code-block">{
+    "device_id": "ESP32_001",
+    "player1_card": "RFID123",
+    "player2_card": "RFID456",
+    "timestamp": 1234567890
+}</pre>
+            </div>
+
+            <div class="topic-card">
+                <div class="topic-name">Topic: foosball/game/goal</div>
+                <div class="topic-direction">Retning: Enhet → Server</div>
+                <div class="comment">Registrerer mål i spillet</div>
+                <pre class="code-block">{
+    "game_id": "GAME_001",
+    "scoring_player": 1,
+    "timestamp": 1234567890
+}</pre>
+            </div>
+        </div>
+
+        <div class="protocol-section">
+            <h2>Feilhåndtering</h2>
+            <div class="topic-card">
+                <div class="topic-name">Topic: iot/error</div>
+                <div class="topic-direction">Retning: Toveis</div>
+                <div class="comment">Håndterer feil og advarsler i systemet</div>
+                <pre class="code-block">{
+    "device_id": "ESP32_001",
+    "error_code": "ERR_001",
+    "severity": "fatal|warning",
+    "message": "Feilbeskrivelse",
+    "timestamp": 1234567890
+}</pre>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -6,6 +6,14 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Load environment variables
+if [ -f .env ]; then
+    export $(cat .env | grep -v '#' | sed 's/\r$//' | awk '/=/ {print $1}')
+else
+    print_color $RED "Error: .env file not found"
+    exit 1
+fi
+
 # Function to print colored text
 print_color() {
     color=$1
@@ -136,6 +144,13 @@ show_help() {
 # Function to generate servers.json
 generate_pgadmin_config() {
     print_color $YELLOW "Generating pgAdmin configuration..."
+    if [ -z "$POSTGRES_DB" ] || [ -z "$POSTGRES_USER" ] || [ -z "$POSTGRES_PASSWORD" ]; then
+        print_color $RED "Error: Required environment variables not set"
+        print_color $RED "Please check POSTGRES_DB, POSTGRES_USER, and POSTGRES_PASSWORD in .env"
+        return 1
+    fi
+    
+    mkdir -p pgadmin
     cat > pgadmin/servers.json << EOF
 {
     "Servers": {
@@ -153,7 +168,7 @@ generate_pgadmin_config() {
     }
 }
 EOF
-    print_color $GREEN "pgAdmin configuration generated!"
+    print_color $GREEN "pgAdmin configuration generated at pgadmin/servers.json"
 }
 
 # Main command handler
@@ -172,6 +187,9 @@ case $1 in
     "logs:db")
         view_logs "postgres"
         ;;
+    "logs:pgadmin")
+        view_logs "pgadmin"
+        ;;
     "logs:web")
         view_logs "nginx"
         ;;
@@ -189,6 +207,9 @@ case $1 in
         ;;
     "dbsize")
         check_db_size
+        ;;
+    "config")
+        generate_pgadmin_config
         ;;
     "help"|*)
         show_help

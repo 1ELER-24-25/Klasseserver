@@ -1,0 +1,12 @@
+# Stopp containerne
+docker-compose down
+
+# Bygg nginx på nytt
+docker-compose build nginx
+
+# Start alle tjenester
+docker-compose up -d
+
+# Sjekk loggene etter noen sekunder
+sleep 5
+docker-compose logs nginx

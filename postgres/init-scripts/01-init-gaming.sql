@@ -95,3 +95,41 @@ BEGIN
         CREATE INDEX idx_rating_history_game ON gaming.rating_history(game_id);
     END IF;
 END $$;
+
+-- Drop existing trigger and function if they exist
+DROP TRIGGER IF EXISTS tr_initialize_user_ratings ON gaming.users;
+DROP FUNCTION IF EXISTS gaming.initialize_user_ratings();
+
+-- Create trigger function for initializing user ratings
+CREATE OR REPLACE FUNCTION gaming.initialize_user_ratings()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Insert default ratings for all game types for the new user
+    INSERT INTO gaming.user_ratings (user_id, game_type_id, elo_rating)
+    SELECT 
+        NEW.user_id,
+        gt.game_type_id,
+        gt.default_elo
+    FROM gaming.game_types gt;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger
+CREATE TRIGGER tr_initialize_user_ratings
+AFTER INSERT ON gaming.users
+FOR EACH ROW
+EXECUTE FUNCTION gaming.initialize_user_ratings();
+
+-- Verify trigger creation
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_trigger 
+        WHERE tgname = 'tr_initialize_user_ratings'
+    ) THEN
+        RAISE EXCEPTION 'Trigger was not created successfully';
+    END IF;
+END $$;

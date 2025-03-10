@@ -7,26 +7,25 @@ DROP SCHEMA IF EXISTS gaming CASCADE;
 -- Re-enable triggers
 SET session_replication_role = 'origin';
 
--- Create schema and tables
+-- Create base schema and tables (always required)
 \i /docker-entrypoint-initdb.d/01-init-gaming.sql
-
--- Create game-specific tables
 \i /docker-entrypoint-initdb.d/02-init-game-specific.sql
-
--- Create rating functions
 \i /docker-entrypoint-initdb.d/05-rating-functions.sql
-
--- Initialize game types
 \i /docker-entrypoint-initdb.d/03-init-game-types.sql
 
--- Add test data
-\i /docker-entrypoint-initdb.d/04-test-data.sql
-
--- Run rating tests
-\i /docker-entrypoint-initdb.d/06-test-ratings.sql
-
--- Run test games
-\i /docker-entrypoint-initdb.d/07-test-games.sql
+-- Conditionally include test data based on environment variable
+DO $$
+BEGIN
+    IF current_setting('custom.include_test_data') = 'true' THEN
+        RAISE NOTICE 'Including test data...';
+        \i /docker-entrypoint-initdb.d/04-test-data.sql
+        \i /docker-entrypoint-initdb.d/06-test-ratings.sql
+        \i /docker-entrypoint-initdb.d/07-test-games.sql
+    ELSE
+        RAISE NOTICE 'Skipping test data...';
+    END IF;
+END
+$$;
 
 -- Verify initialization
 DO $$
