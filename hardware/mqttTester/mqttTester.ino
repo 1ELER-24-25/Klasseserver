@@ -4,8 +4,8 @@
 #include <ArduinoJson.h>
 
 // WiFi and MQTT settings
-const char* ssid = "Ingve";
-const char* password = "AndreaBochili";
+const char* ssid = "SSID";
+const char* password = "PASSWORD";
 const char* mqtt_server = "192.168.1.216";
 const int mqtt_port = 1883;
 
